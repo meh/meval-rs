@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="rustdoc">
+    <meta name="description" content="API documentation for the Rust `meval` crate.">
+    <meta name="keywords" content="rust, rustlang, rust-lang, meval">
+
+    <title>meval - Rust</title>
+
+    <link rel="stylesheet" type="text/css" href="../rustdoc.css">
+    <link rel="stylesheet" type="text/css" href="../main.css">
+    
+
+    
+    
+</head>
+<body class="rustdoc">
+    <!--[if lte IE 8]>
+    <div class="warning">
+        This old browser is unsupported and will most likely display funky
+        things.
+    </div>
+    <![endif]-->
+
+    
+
+    <nav class="sidebar">
+        
+        <p class='location'></p><script>window.sidebarCurrent = {name: 'meval', ty: 'mod', relpath: '../'};</script>
+    </nav>
+
+    <nav class="sub">
+        <form class="search-form js-only">
+            <div class="search-container">
+                <input class="search-input" name="search"
+                       autocomplete="off"
+                       placeholder="Click or press ‘S’ to search, ‘?’ for more options…"
+                       type="search">
+            </div>
+        </form>
+    </nav>
+
+    <section id='main' class="content mod">
+<h1 class='fqn'><span class='in-band'>Crate <a class='mod' href=''>meval</a></span><span class='out-of-band'><span id='render-detail'>
+                   <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
+                       [<span class='inner'>&#x2212;</span>]
+                   </a>
+               </span><a id='src-0' class='srclink' href='../src/meval/src/lib.rs.html#1-181' title='goto source code'>[src]</a></span></h1>
+<div class='docblock'><p>This <a href="https://www.rust-lang.org/">Rust</a> crate provides a simple math expression parsing and evaluation. Its main goal is to
+be convenient to use, while allowing for some flexibility. Currently works only with <code>f64</code>
+types.</p>
+
+<h2 id='simple-examples' class='section-header'><a href='#simple-examples'>Simple examples</a></h2>
+<pre class='rust rust-example-rendered'>
+<span class='kw'>extern</span> <span class='kw'>crate</span> <span class='ident'>meval</span>;
+
+<span class='kw'>fn</span> <span class='ident'>main</span>() {
+    <span class='kw'>let</span> <span class='ident'>r</span> <span class='op'>=</span> <span class='ident'>meval</span>::<span class='ident'>eval_str</span>(<span class='string'>&quot;1 + 2&quot;</span>).<span class='ident'>unwrap</span>();
+
+    <span class='macro'>println</span><span class='macro'>!</span>(<span class='string'>&quot;1 + 2 = {}&quot;</span>, <span class='ident'>r</span>);
+}</pre>
+
+<p>Need to define a Rust function from an expression? No problem, use <a href="struct.Expr.html"><code>Expr</code></a>
+for this and more:</p>
+
+<pre class='rust rust-example-rendered'>
+<span class='kw'>extern</span> <span class='kw'>crate</span> <span class='ident'>meval</span>;
+
+<span class='kw'>fn</span> <span class='ident'>main</span>() {
+    <span class='kw'>let</span> <span class='ident'>expr</span> <span class='op'>=</span> <span class='ident'>meval</span>::<span class='ident'>Expr</span>::<span class='ident'>from_str</span>(<span class='string'>&quot;sin(pi * x)&quot;</span>).<span class='ident'>unwrap</span>();
+    <span class='kw'>let</span> <span class='ident'>func</span> <span class='op'>=</span> <span class='ident'>expr</span>.<span class='ident'>bind</span>(<span class='string'>&quot;x&quot;</span>).<span class='ident'>unwrap</span>();
+
+    <span class='kw'>let</span> <span class='ident'>vs</span>: <span class='ident'>Vec</span><span class='op'>&lt;</span>_<span class='op'>&gt;</span> <span class='op'>=</span> (<span class='number'>0</span>..<span class='number'>100</span><span class='op'>+</span><span class='number'>1</span>).<span class='ident'>map</span>(<span class='op'>|</span><span class='ident'>i</span><span class='op'>|</span> <span class='ident'>func</span>(<span class='ident'>i</span> <span class='kw'>as</span> <span class='ident'>f64</span> <span class='op'>/</span> <span class='number'>100.</span>)).<span class='ident'>collect</span>();
+
+    <span class='macro'>println</span><span class='macro'>!</span>(<span class='string'>&quot;sin(pi * x), 0 &lt;= x &lt;= 1: {:?}&quot;</span>, <span class='ident'>vs</span>);
+}</pre>
+
+<p><a href="struct.Expr.html#method.bind"><code>Expr::bind</code></a> returns a boxed closure that is slightly less
+convenient than an unboxed closure since <code>Box&lt;Fn(f64) -&gt; f64&gt;</code> does not implement <code>FnOnce</code>,
+<code>Fn</code> or <code>FnMut</code>. So to use it directly as a function argument where a closure is expected, it
+has to be manually dereferenced:</p>
+
+<pre class='rust rust-example-rendered'>
+<span class='kw'>let</span> <span class='ident'>func</span> <span class='op'>=</span> <span class='ident'>meval</span>::<span class='ident'>Expr</span>::<span class='ident'>from_str</span>(<span class='string'>&quot;x&quot;</span>).<span class='ident'>unwrap</span>().<span class='ident'>bind</span>(<span class='string'>&quot;x&quot;</span>).<span class='ident'>unwrap</span>();
+<span class='kw'>let</span> <span class='ident'>r</span> <span class='op'>=</span> <span class='prelude-val'>Some</span>(<span class='number'>2.</span>).<span class='ident'>map</span>(<span class='kw-2'>&amp;</span><span class='op'>*</span><span class='ident'>func</span>);</pre>
+
+<p>Custom constants and functions? Define a context!</p>
+
+<pre class='rust rust-example-rendered'>
+<span class='kw'>let</span> <span class='ident'>y</span> <span class='op'>=</span> <span class='number'>1.</span>;
+<span class='kw'>let</span> <span class='ident'>expr</span> <span class='op'>=</span> <span class='ident'>meval</span>::<span class='ident'>Expr</span>::<span class='ident'>from_str</span>(<span class='string'>&quot;phi(-2 * zeta + x)&quot;</span>).<span class='ident'>unwrap</span>();
+
+<span class='comment'>// create a context with function definitions and variables</span>
+<span class='kw'>let</span> <span class='ident'>ctx</span> <span class='op'>=</span> (<span class='ident'>meval</span>::<span class='ident'>CustomFunc</span>(<span class='string'>&quot;phi&quot;</span>, <span class='op'>|</span><span class='ident'>x</span><span class='op'>|</span> <span class='ident'>x</span> <span class='op'>+</span> <span class='ident'>y</span>), (<span class='string'>&quot;zeta&quot;</span>, <span class='op'>-</span><span class='number'>1.</span>));
+<span class='comment'>// bind function with builtins as well as custom context</span>
+<span class='kw'>let</span> <span class='ident'>func</span> <span class='op'>=</span> <span class='ident'>expr</span>.<span class='ident'>bind_with_context</span>((<span class='ident'>meval</span>::<span class='ident'>builtin</span>(), <span class='ident'>ctx</span>), <span class='string'>&quot;x&quot;</span>).<span class='ident'>unwrap</span>();
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>func</span>(<span class='number'>2.</span>), <span class='op'>-</span><span class='number'>2.</span> <span class='op'>*</span> <span class='op'>-</span><span class='number'>1.</span> <span class='op'>+</span> <span class='number'>2.</span> <span class='op'>+</span> <span class='number'>1.</span>);</pre>
+
+<p>For functions with 2, 3, and N variables use <code>CustomFunc2</code>, <code>CustomFunc3</code> and <code>CustomFuncN</code>
+respectively.</p>
+
+<p>If you need a custom function depending on mutable parameters, you will need to use a
+<a href="https://doc.rust-lang.org/stable/std/cell/struct.Cell.html"><code>Cell</code></a>:</p>
+
+<pre class='rust rust-example-rendered'>
+<span class='kw'>use</span> <span class='ident'>std</span>::<span class='ident'>cell</span>::<span class='ident'>Cell</span>;
+<span class='kw'>let</span> <span class='ident'>y</span> <span class='op'>=</span> <span class='ident'>Cell</span>::<span class='ident'>new</span>(<span class='number'>0.</span>);
+<span class='kw'>let</span> <span class='ident'>expr</span> <span class='op'>=</span> <span class='ident'>meval</span>::<span class='ident'>Expr</span>::<span class='ident'>from_str</span>(<span class='string'>&quot;phi(x)&quot;</span>).<span class='ident'>unwrap</span>();
+
+<span class='kw'>let</span> <span class='ident'>ctx</span> <span class='op'>=</span> <span class='ident'>meval</span>::<span class='ident'>CustomFunc</span>(<span class='string'>&quot;phi&quot;</span>, <span class='op'>|</span><span class='ident'>x</span><span class='op'>|</span> <span class='ident'>x</span> <span class='op'>+</span> <span class='ident'>y</span>.<span class='ident'>get</span>());
+<span class='kw'>let</span> <span class='ident'>func</span> <span class='op'>=</span> <span class='ident'>expr</span>.<span class='ident'>bind_with_context</span>(<span class='ident'>ctx</span>, <span class='string'>&quot;x&quot;</span>).<span class='ident'>unwrap</span>();
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>func</span>(<span class='number'>2.</span>), <span class='number'>2.</span>);
+<span class='ident'>y</span>.<span class='ident'>set</span>(<span class='number'>3.</span>);
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>func</span>(<span class='number'>2.</span>), <span class='number'>5.</span>);</pre>
+
+<h2 id='supported-expressions' class='section-header'><a href='#supported-expressions'>Supported expressions</a></h2>
+<p><code>meval</code> supports basic mathematical operations on floating point numbers:</p>
+
+<ul>
+<li>binary operators: <code>+</code>, <code>-</code>, <code>*</code>, <code>/</code>, <code>^</code> (power)</li>
+<li>unary operators: <code>+</code>, <code>-</code></li>
+</ul>
+
+<p>It supports custom variables like <code>x</code>, <code>weight</code>, <code>C_0</code>, etc. A variable must start with
+<code>[a-zA-Z_]</code> and can contain only <code>[a-zA-Z0-9_]</code>.</p>
+
+<p>Build-ins (given by context <code>meval::builtin()</code>) currently supported:</p>
+
+<ul>
+<li><p>functions implemented using functions of the same name in <a href="http://doc.rust-lang.org/stable/std/primitive.f64.html">Rust std library</a>:</p>
+
+<ul>
+<li><code>sqrt</code>, <code>abs</code></li>
+<li><code>exp</code>, <code>ln</code></li>
+<li><code>sin</code>, <code>cos</code>, <code>tan</code>, <code>asin</code>, <code>acos</code>, <code>atan</code>, <code>atan2</code></li>
+<li><code>sinh</code>, <code>cosh</code>, <code>tanh</code>, <code>asinh</code>, <code>acosh</code>, <code>atanh</code></li>
+<li><code>floor</code>, <code>ceil</code>, <code>round</code></li>
+<li><code>signum</code></li>
+</ul></li>
+<li><p>other functions:</p>
+
+<ul>
+<li><code>max(x, ...)</code>, <code>min(x, ...)</code>: maximum and minimumum of 1 or more numbers</li>
+</ul></li>
+<li><p>constants:</p>
+
+<ul>
+<li><code>pi</code></li>
+<li><code>e</code></li>
+</ul></li>
+</ul>
+
+<h2 id='related-projects' class='section-header'><a href='#related-projects'>Related projects</a></h2>
+<p>This is a toy project of mine for learning Rust, and to be hopefully useful when writing
+command line scripts. For other similar projects see:</p>
+
+<ul>
+<li><a href="https://github.com/rodolf0/tox">rodolf0/tox</a></li>
+</ul>
+</div><h2 id='reexports' class='section-header'><a href="#reexports">Reexports</a></h2>
+<table><tr><td><code>pub use shunting_yard::<a class='enum' href='../meval/shunting_yard/enum.RPNError.html' title='meval::shunting_yard::RPNError'>RPNError</a>;</code></td></tr><tr><td><code>pub use tokenizer::<a class='enum' href='../meval/tokenizer/enum.ParseError.html' title='meval::tokenizer::ParseError'>ParseError</a>;</code></td></tr></table><h2 id='modules' class='section-header'><a href="#modules">Modules</a></h2>
+<table>
+                       <tr class=' module-item'>
+                           <td><a class='mod' href='shunting_yard/index.html'
+                                  title='meval::shunting_yard'>shunting_yard</a></td>
+                           <td class='docblock short'>
+                                <p>Implementation of the shunting-yard algorithm for converting an infix expression to an
+expression in reverse Polish notation (RPN).</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class='mod' href='tokenizer/index.html'
+                                  title='meval::tokenizer'>tokenizer</a></td>
+                           <td class='docblock short'>
+                                <p>Tokenizer that converts a mathematical expression in a string form into a series of <code>Token</code>s.</p>
+                           </td>
+                       </tr></table><h2 id='structs' class='section-header'><a href="#structs">Structs</a></h2>
+<table>
+                       <tr class=' module-item'>
+                           <td><a class='struct' href='struct.Builtins.html'
+                                  title='meval::Builtins'>Builtins</a></td>
+                           <td class='docblock short'>
+                                <p>Built-in functions and constants.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class='struct' href='struct.CustomFunc.html'
+                                  title='meval::CustomFunc'>CustomFunc</a></td>
+                           <td class='docblock short'>
+                                <p>A custom function of one variable.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class='struct' href='struct.CustomFunc2.html'
+                                  title='meval::CustomFunc2'>CustomFunc2</a></td>
+                           <td class='docblock short'>
+                                <p>A custom function of two variables.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class='struct' href='struct.CustomFunc3.html'
+                                  title='meval::CustomFunc3'>CustomFunc3</a></td>
+                           <td class='docblock short'>
+                                <p>A custom function of three variables.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class='struct' href='struct.CustomFuncN.html'
+                                  title='meval::CustomFuncN'>CustomFuncN</a></td>
+                           <td class='docblock short'>
+                                <p>A custom function of N variables.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class='struct' href='struct.Expr.html'
+                                  title='meval::Expr'>Expr</a></td>
+                           <td class='docblock short'>
+                                <p>Representation of a parsed expression.</p>
+                           </td>
+                       </tr></table><h2 id='enums' class='section-header'><a href="#enums">Enums</a></h2>
+<table>
+                       <tr class=' module-item'>
+                           <td><a class='enum' href='enum.Error.html'
+                                  title='meval::Error'>Error</a></td>
+                           <td class='docblock short'>
+                                <p>An error produced during parsing or evaluation.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class='enum' href='enum.FuncEvalError.html'
+                                  title='meval::FuncEvalError'>FuncEvalError</a></td>
+                           <td class='docblock short'>
+                                <p>Function evaluation error.</p>
+                           </td>
+                       </tr></table><h2 id='traits' class='section-header'><a href="#traits">Traits</a></h2>
+<table>
+                       <tr class=' module-item'>
+                           <td><a class='trait' href='trait.Context.html'
+                                  title='meval::Context'>Context</a></td>
+                           <td class='docblock short'>
+                                <p>Values of variables (and constants) for substitution into an evaluated expression.</p>
+                           </td>
+                       </tr></table><h2 id='functions' class='section-header'><a href="#functions">Functions</a></h2>
+<table>
+                       <tr class=' module-item'>
+                           <td><a class='fn' href='fn.builtin.html'
+                                  title='meval::builtin'>builtin</a></td>
+                           <td class='docblock short'>
+                                <p>Returns the build-in constants in a form that can be used as a <code>Context</code>.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class='fn' href='fn.eval_str.html'
+                                  title='meval::eval_str'>eval_str</a></td>
+                           <td class='docblock short'>
+                                <p>Evaluates a string with built-in constants.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class='fn' href='fn.eval_str_with_context.html'
+                                  title='meval::eval_str_with_context'>eval_str_with_context</a></td>
+                           <td class='docblock short'>
+                                <p>Evaluates a string with the given context.</p>
+                           </td>
+                       </tr></table></section>
+    <section id='search' class="content hidden"></section>
+
+    <section class="footer"></section>
+
+    <aside id="help" class="hidden">
+        <div>
+            <h1 class="hidden">Help</h1>
+
+            <div class="shortcuts">
+                <h2>Keyboard Shortcuts</h2>
+
+                <dl>
+                    <dt>?</dt>
+                    <dd>Show this help dialog</dd>
+                    <dt>S</dt>
+                    <dd>Focus the search field</dd>
+                    <dt>&larrb;</dt>
+                    <dd>Move up in search results</dd>
+                    <dt>&rarrb;</dt>
+                    <dd>Move down in search results</dd>
+                    <dt>&#9166;</dt>
+                    <dd>Go to active search result</dd>
+                    <dt>+</dt>
+                    <dd>Collapse/expand all sections</dd>
+                </dl>
+            </div>
+
+            <div class="infos">
+                <h2>Search Tricks</h2>
+
+                <p>
+                    Prefix searches with a type followed by a colon (e.g.
+                    <code>fn:</code>) to restrict the search to a given type.
+                </p>
+
+                <p>
+                    Accepted types are: <code>fn</code>, <code>mod</code>,
+                    <code>struct</code>, <code>enum</code>,
+                    <code>trait</code>, <code>type</code>, <code>macro</code>,
+                    and <code>const</code>.
+                </p>
+
+                <p>
+                    Search functions by type signature (e.g.
+                    <code>vec -> usize</code> or <code>* -> vec</code>)
+                </p>
+            </div>
+        </div>
+    </aside>
+
+    
+
+    <script>
+        window.rootPath = "../";
+        window.currentCrate = "meval";
+        window.playgroundUrl = "";
+    </script>
+    <script src="../jquery.js"></script>
+    <script src="../main.js"></script>
+    
+    <script defer src="../search-index.js"></script>
+</body>
+</html>
